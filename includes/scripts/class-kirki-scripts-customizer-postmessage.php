@@ -1,30 +1,42 @@
 <?php
 
-/**
-* Try to automatically generate the script necessary for postMessage to work.
-* Something like this will have to be added to the control arguments:
-*
-* 	'transport' => 'postMessage',
-* 	'js_vars'   => array(
-* 		array(
-* 			'element'  => 'body',
-* 			'function' => 'css',
-* 			'property' => 'color',
-* 		),
-* 		array(
-* 			'element'  => '#content',
-* 			'function' => 'css',
-* 			'property' => 'background-color',
-* 		),
-* 		array(
-* 			'element'  => 'body',
-* 			'function' => 'html',
-* 		)
-* 	)
-*
-*/
-class Kirki_Scripts_Customizer_PostMessage extends Kirki_Scripts_Enqueue_Script {
+namespace Kirki\Scripts\Customizer;
 
+use Kirki;
+use Kirki\Scripts\EnqueueScript;
+use Kirki\Scripts\ScriptRegistry;
+
+/**
+ * Class PostMessage
+ * @package Kirki\Scripts\Customizer
+ * @modified: ER: modificata la sanitazzation delle js_vars perché strippava i caratteri tipo ">", che invece sono necessari
+ */
+class PostMessage extends EnqueueScript {
+
+	/**
+	 * Try to automatically generate the script necessary for postMessage to work.
+	 * Something like this will have to be added to the control arguments:
+	 *
+
+	'transport' => 'postMessage',
+	'js_vars'   => array(
+		array(
+			'element'  => 'body',
+			'function' => 'css',
+			'property' => 'color',
+		),
+		array(
+			'element'  => '#content',
+			'function' => 'css',
+			'property' => 'background-color',
+		),
+		array(
+		'element'  => 'body',
+		'function' => 'html',
+		)
+	)
+	 *
+	 */
 	public function wp_footer() {
 
 		global $wp_customize;
@@ -33,19 +45,20 @@ class Kirki_Scripts_Customizer_PostMessage extends Kirki_Scripts_Enqueue_Script 
 			return;
 		}
 
-		// Get an array of all the fields
 		$fields = Kirki::fields()->get_all();
 		$script = '';
-		// Parse the fields and create the script.
 		foreach ( $fields as $field ) {
 			if ( isset( $field['transport']  ) && ! is_null( $field['js_vars'] ) && 'postMessage' == $field['transport'] ) {
 				foreach ( $field['js_vars'] as $js_vars ) {
 					$script .= 'wp.customize( \'' . $field['settings'] . '\', function( value ) {';
 					$script .= 'value.bind( function( newval ) {';
 					if ( 'html' == $js_vars['function'] ) {
-						$script .= '$( \'' . esc_js( $js_vars["element"] ) . '\' ).html( newval );';
+                        $script .= '$( \'' . esc_js( $js_vars["element"] ) . '\' ).html( newval );';
+                        // ER: the ">" characters were transformed to "&gt;", making impossible to select some DOM elements
+                        if (strpos($script,'&gt;') !== false) $script = str_replace('&gt;', '>', $script);
 					} elseif ( 'css' == $js_vars['function'] ) {
 						$script .= '$(\'' . esc_js( $js_vars["element"] ) . '\').css(\'' . esc_js( $js_vars["property"] ) . '\', newval );';
+                        if (strpos($script,'&gt;') !== false) $script = str_replace('&gt;', '>', $script);
 					}
 					$script .= '}); });';
 				}
@@ -53,7 +66,7 @@ class Kirki_Scripts_Customizer_PostMessage extends Kirki_Scripts_Enqueue_Script 
 		}
 
 		if ( '' != $script ) {
-			echo Kirki_Scripts_Registry::prepare( $script );
+			echo ScriptRegistry::prepare( $script );
 		}
 
 	}
